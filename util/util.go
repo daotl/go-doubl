@@ -193,7 +193,7 @@ func (u *Util) GenRootHashFromTransactionExts(txxs []*TransactionExt) Transactio
 // If tx contains signature, return a copy without the signature.
 func getTxNoSig(tx *Transaction) (txNoSig *Transaction) {
 	// Don't need to copy Transaction
-	if tx.Sig != nil {
+	if tx.Sig == nil {
 		return tx
 	}
 

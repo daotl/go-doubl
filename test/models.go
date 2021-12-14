@@ -82,7 +82,7 @@ func GenTestModels() {
 		panic(err)
 	}
 
-	TestTransaction.Sig, err = ut.Crpt.SignMessage(TestPrivateKey, bin, nil)
+	TestTransaction.Sig, err = TestPrivateKey.SignMessage(bin, nil)
 	if err != nil {
 		panic(err)
 	}

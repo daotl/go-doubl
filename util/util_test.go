@@ -33,3 +33,21 @@ func TestComputeRootHash(t *testing.T) {
 	h_ = ut.GenRootHashFromTransactionExts(txxs)
 	assr.Equal(h, h_)
 }
+
+func TestVerifySignature(t *testing.T) {
+	req := require.New(t)
+	assr := assert.New(t)
+	var err error
+	ut := test.Util
+
+	tx := &test.TestTransaction
+	txx, err := ut.ExtendTransaction(tx)
+	req.NoError(err)
+
+	ok, err := ut.VerifyTransactionSignature(tx)
+	assr.NoError(err)
+	assr.True(ok)
+	ok, err = ut.VerifyTransactionExtSignature(txx)
+	assr.NoError(err)
+	assr.True(ok)
+}
