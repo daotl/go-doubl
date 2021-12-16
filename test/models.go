@@ -13,8 +13,7 @@ import (
 	"github.com/ipfs/go-cid"
 	mh "github.com/multiformats/go-multihash"
 
-	. "github.com/daotl/go-doubl/model"
-	"github.com/daotl/go-doubl/util"
+	m "github.com/daotl/go-doubl/model"
 )
 
 func init() {
@@ -23,10 +22,10 @@ func init() {
 }
 
 type TransactionNoSig struct {
-	Type  TransactionType
-	From  Address
+	Type  m.TransactionType
+	From  m.Address
 	Nonce uint64
-	To    Address
+	To    m.Address
 	Data  []byte
 	Extra []byte
 }
@@ -35,31 +34,32 @@ func (t TransactionNoSig) Ptr() marsha.StructPtr { return &t }
 func (p *TransactionNoSig) Val() marsha.Struct   { return *p }
 
 var (
-	ut *util.Util
+	ut *m.Util
 
-	TestPublicKey       crpt.PublicKey
-	TestPrivateKey      crpt.PrivateKey
-	TestAddress         crpt.Address
-	TestSignature       Signature
-	TestTransaction     Transaction
-	TestTransactionHash TransactionHash
-	TestTransactions    Transactions
-	TestBlockHeader     BlockHeader
+	TestPublicKey        crpt.PublicKey
+	TestPrivateKey       crpt.PrivateKey
+	TestAddress          crpt.Address
+	TestSignature        m.Signature
+	TestTransaction      m.Transaction
+	TestTransactionHash  m.TransactionHash
+	TestTransactionSlice m.TransactionSlice
+	TestBlockHeader      m.BlockHeader
+	TestBlock            m.Block
 
-	TestHash = Hash32{
+	TestHash = m.Hash32{
 		0x1, 0x2, 0x3, 0x4, 0x1, 0x2, 0x3, 0x4, 0x1, 0x2, 0x3, 0x4, 0x1, 0x2, 0x3, 0x4,
 		0x1, 0x2, 0x3, 0x4, 0x1, 0x2, 0x3, 0x4, 0x1, 0x2, 0x3, 0x4, 0x1, 0x2, 0x3, 0x4,
 	}
-	TestHash2 = Hash32{
+	TestHash2 = m.Hash32{
 		0x5, 0x6, 0x7, 0x8, 0x5, 0x6, 0x7, 0x8, 0x5, 0x6, 0x7, 0x8, 0x5, 0x6, 0x7, 0x8,
 		0x5, 0x6, 0x7, 0x8, 0x5, 0x6, 0x7, 0x8, 0x5, 0x6, 0x7, 0x8, 0x5, 0x6, 0x7, 0x8,
 	}
 	TestBlockHash   = TestHash
-	TestBlockHashes = make([]BlockHash, 1)
-	TestAddress2    = Address(TestHash)
+	TestBlockHashes = make([]m.BlockHash, 1)
+	TestAddress2    = m.Address(TestHash)
 )
 
-func SetUtil(u *util.Util) {
+func SetUtil(u *m.Util) {
 	ut = u
 }
 
@@ -67,7 +67,7 @@ func SetUtil(u *util.Util) {
 func GenTestModels() {
 	TestPublicKey, TestPrivateKey, _ = ut.Crpt.GenerateKey(nil)
 	TestAddress = TestPublicKey.Address()
-	TestTransaction = Transaction{
+	TestTransaction = m.Transaction{
 		Type:  4,
 		Nonce: 52,
 		From:  TestAddress,
@@ -92,15 +92,20 @@ func GenTestModels() {
 		panic(err)
 	}
 
-	TestTransactions = Transactions{TestTransaction, TestTransaction}
+	TestTransactionSlice = m.TransactionSlice{TestTransaction, TestTransaction}
 
 	TestBlockHeader = GenTestBlockHeaderWithExtra([]byte{0x4, 0x13, 0x52})
+
+	TestBlock = m.Block{
+		Header: TestBlockHeader,
+		Txs:    TestTransactionSlice,
+	}
 }
 
 // GenRandomTransaction generates a random Transaction for test.
 // NOTE: Sig is not a valid signature.
-func GenRandomTransaction() *Transaction {
-	return &Transaction{
+func GenRandomTransaction() *m.Transaction {
+	return &m.Transaction{
 		Type:  4,
 		From:  TestAddress,
 		Nonce: 52,
@@ -112,7 +117,7 @@ func GenRandomTransaction() *Transaction {
 }
 
 // GenRandomTransactionExt generates a random TransactionExt for test.
-func GenRandomTransactionExt() *TransactionExt {
+func GenRandomTransactionExt() *m.TransactionExt {
 	tx := GenRandomTransaction()
 	txx, err := ut.ExtendTransaction(tx)
 	if err != nil {
@@ -121,24 +126,24 @@ func GenRandomTransactionExt() *TransactionExt {
 	return txx
 }
 
-// GenRandomTransactionExt generates random TransactionExts for test.
-func GenRandomTransactionExts(min, max int) []TransactionExt {
-	min, max = adjustRange(min, max)
+// GenRandomTransactionExt generates random TransactionExtSlice for test.
+func GenRandomTransactionExtSlice(min, max int) m.TransactionExtSlice {
+	min, max = FixCountRange(min, max)
 	n := min + rand.Int()%(max-min+1)
-	txxs := make([]TransactionExt, n)
+	txxs := make(m.TransactionExtSlice, n)
 	for i := 0; i < n; i++ {
 		tx := GenRandomTransactionExt()
-		txxs = append(txxs, *tx)
+		txxs = append(txxs, tx)
 	}
 	return txxs
 }
 
 // GenTestBlockHeaderWithExtra creates a BlockHeader for test with given Extra data.
-func GenTestBlockHeaderWithExtra(extraBytes []byte) BlockHeader {
-	return BlockHeader{
+func GenTestBlockHeaderWithExtra(extraBytes []byte) m.BlockHeader {
+	return m.BlockHeader{
 		Creator:    TestAddress,
 		Time:       1525392000,
-		PrevHashes: []BlockHash{TestHash},
+		PrevHashes: []m.BlockHash{TestHash},
 		Height:     52,
 		TxRoot:     TestHash,
 		TxCount:    52,
@@ -148,17 +153,17 @@ func GenTestBlockHeaderWithExtra(extraBytes []byte) BlockHeader {
 }
 
 // GenRandomHash generates a random hash for test.
-func GenRandomHash() Hash32 {
-	a := [HashSize]byte{}
+func GenRandomHash() m.Hash32 {
+	a := [m.HashSize]byte{}
 	crand.Read(a[:])
 	return a[:]
 }
 
 // GenRandomHash generates random hashes for test.
-func GenRandomHashes() []Hash32 {
+func GenRandomHashes() []m.Hash32 {
 	rand.Seed(time.Now().UnixNano())
 	cnt := rand.Intn(100)
-	hs := make([]Hash32, cnt)
+	hs := make([]m.Hash32, cnt)
 	for i := 0; i < cnt; i++ {
 		hs[i] = GenRandomHash()
 	}
@@ -174,7 +179,7 @@ func GenRandomCid() cid.Cid {
 
 /* Helpers */
 
-func adjustRange(min, max int) (int, int) {
+func FixCountRange(min, max int) (int, int) {
 	switch {
 	case max < 0:
 		max = 0

@@ -4,8 +4,8 @@ go 1.17
 
 require (
 	github.com/crpt/go-crpt v0.5.0
-	github.com/daotl/cbor-gen v0.0.5
-	github.com/daotl/go-marsha v0.0.2
+	github.com/daotl/cbor-gen v0.0.6
+	github.com/daotl/go-marsha v0.2.0
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-ipld-cbor v0.0.5
 	github.com/multiformats/go-multihash v0.1.0

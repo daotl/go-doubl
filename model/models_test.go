@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	ipldcbor "github.com/ipfs/go-ipld-cbor"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	. "github.com/daotl/go-doubl/model"
@@ -14,6 +15,7 @@ import (
 
 func TestMarshalUnmarshal(t *testing.T) {
 	req := require.New(t)
+	assr := assert.New(t)
 	mrsh := test.Mrsh
 
 	t.Run("Transaction.MarshalCBOR/UnmarshalCBOR", func(t *testing.T) {
@@ -25,9 +27,10 @@ func TestMarshalUnmarshal(t *testing.T) {
 		fmt.Println("Serialized Transaction size: ", len(bin))
 		fmt.Printf("%02x\n", bin)
 		tx2 := &Transaction{}
-		err = tx2.UnmarshalCBOR(&b)
+		read, err := tx2.UnmarshalCBOR(&b)
 		req.NoError(err)
-		req.Equal(tx, tx2)
+		assr.Equal(tx, tx2)
+		assr.Equal(len(bin), read)
 	})
 
 	t.Run("Marshal & unmarshal Transaction", func(t *testing.T) {
@@ -37,9 +40,10 @@ func TestMarshalUnmarshal(t *testing.T) {
 		fmt.Println("Serialized Transaction size: ", len(bin))
 		fmt.Printf("%02x\n", bin)
 		tx2 := &Transaction{}
-		err = mrsh.UnmarshalStruct(bin, tx2)
+		read, err := mrsh.UnmarshalStruct(bin, tx2)
 		req.NoError(err)
-		req.Equal(tx, tx2)
+		assr.Equal(tx, tx2)
+		assr.Equal(len(bin), read)
 	})
 
 	t.Run("Marshal & unmarshal Transaction tuple", func(t *testing.T) {
@@ -63,18 +67,20 @@ func TestMarshalUnmarshal(t *testing.T) {
 		fmt.Println("Serialized Transaction size: ", l)
 	})
 
-	t.Run("Marshal & unmarshal Transactions", func(t *testing.T) {
-		txs := &test.TestTransactions
+	t.Run("Marshal & unmarshal TransactionSlice", func(t *testing.T) {
+		txs := &test.TestTransactionSlice
 		bin, err := mrsh.MarshalStructSlice(txs)
 		req.NoError(err)
-		fmt.Println("Serialized Transactions size: ", len(bin))
+		fmt.Println("Serialized TransactionSlice size: ", len(bin))
 		fmt.Printf("%02x\n", bin)
-		txs2 := &Transactions{}
-		err = mrsh.UnmarshalStructSlice(bin, txs2)
+		txs2 := &TransactionSlice{}
+		read, err := mrsh.UnmarshalStructSlice(bin, txs2)
 		req.NoError(err)
-		req.Equal(txs, txs2)
+		assr.Equal(txs, txs2)
+		assr.Equal(len(bin), read)
 	})
 
+	// This is expected to not pass when using tuple encoding for the outmost struct.
 	//t.Run("Test that Transaction with nil Sig field serialize correctly", func(t *testing.T) {
 	//	tx := &test.TestTransaction
 	//	tx.Sig = nil
@@ -103,9 +109,10 @@ func TestMarshalUnmarshal(t *testing.T) {
 		bin := b.Bytes()
 		fmt.Println("Serialized BlockHeader size: ", len(bin))
 		bh2 := &BlockHeader{}
-		err = bh2.UnmarshalCBOR(&b)
+		read, err := bh2.UnmarshalCBOR(&b)
 		req.NoError(err)
-		req.Equal(bh, bh2)
+		assr.Equal(bh, bh2)
+		assr.Equal(len(bin), read)
 	})
 
 	t.Run("Marshal & unmarshal BlockHeader", func(t *testing.T) {
@@ -115,9 +122,36 @@ func TestMarshalUnmarshal(t *testing.T) {
 		fmt.Printf("%0x\n", bin)
 		req.NoError(err)
 		bh2 := &BlockHeader{}
-		err = mrsh.UnmarshalStruct(bin, bh2)
+		read, err := mrsh.UnmarshalStruct(bin, bh2)
 		req.NoError(err)
-		req.Equal(bh, bh2)
+		assr.Equal(bh, bh2)
+		assr.Equal(len(bin), read)
+	})
+
+	t.Run("Marshal & unmarshal Block", func(t *testing.T) {
+		bh := &test.TestBlock
+		bin, err := mrsh.MarshalStruct(bh)
+		fmt.Println("Serialized Block size: ", len(bin))
+		fmt.Printf("%0x\n", bin)
+		req.NoError(err)
+		bh2 := &Block{}
+		read, err := mrsh.UnmarshalStruct(bin, bh2)
+		req.NoError(err)
+		assr.Equal(bh, bh2)
+		assr.Equal(len(bin), read)
+	})
+
+	t.Run("Marshal & unmarshal Block", func(t *testing.T) {
+		bh := &test.TestBlock
+		bin, err := mrsh.MarshalStruct(bh)
+		fmt.Println("Serialized Block size: ", len(bin))
+		fmt.Printf("%0x\n", bin)
+		req.NoError(err)
+		bh2 := &Block{}
+		read, err := mrsh.UnmarshalStruct(bin, bh2)
+		req.NoError(err)
+		assr.Equal(bh, bh2)
+		assr.Equal(len(bin), read)
 	})
 }
 

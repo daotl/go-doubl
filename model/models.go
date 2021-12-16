@@ -13,15 +13,26 @@ const (
 	CborNull       = byte(0xf6)
 	CborNullLength = 1
 
-	// Transaction is serialized as a CBOR array
-	// Transaction initial byte: major type 4 (100) + map length 6 (00110)
-	TransactionCborInitial = byte(0b100_00110)
-
 	// Signature initial 2 bytes:
 	// 0x58: 0b010_11000: major type 2 (010) + additional information 24 means 1-byte length (11000)
 	// 0x41: 1-byte length: 64 bytes
 	SignatureCborInitialLength = 2
 	SignatureCborDataLength    = 64
+
+	// Transaction is serialized as a CBOR array
+	// Transaction initial byte: major type 4 (100) + map length 7 (00111)
+	TransactionCborInitial       = byte(0b100_00111)
+	TransactionCborInitialLength = 1
+
+	// BlockHeader is serialized as a CBOR array
+	// BlockHeader initial byte: major type 4 (100) + map length 8 (01000)
+	BlockHeaderCborInitial       = byte(0b100_01000)
+	BlockHeaderCborInitialLength = 1
+
+	// Block is serialized as a CBOR array
+	// Block initial byte: major type 4 (100) + map length 8 (00010)
+	BlockCborInitial       = byte(0b100_00010)
+	BlockCborInitialLength = 1
 )
 
 // Transaction defines a transaction that can be encoded into CBOR or JSON representation.
@@ -57,28 +68,44 @@ func (t Transaction) Ptr() marsha.StructPtr { return &t }
 // Val implements marsha.StructPtr
 func (t *Transaction) Val() marsha.Struct { return *t }
 
-// Size is the estimated occupied memory of Transaction.
-func (t *Transaction) Size() int {
-	return int(unsafe.Sizeof(t)) + len(t.From) + len(t.To) + len(t.Data) + len(t.Sig)
+// Size calculates the estimated occupied memory of Transaction in bytes.
+func (t *Transaction) Size() uint64 {
+	return uint64(
+		int(unsafe.Sizeof(t)) +
+			len(t.From) +
+			len(t.To) +
+			len(t.Data) +
+			len(t.Extra) +
+			len(t.Sig),
+	)
 }
 
-// Transactions is a slice of Transaction
-type Transactions []Transaction
+// TransactionSlice is a slice of Transaction
+type TransactionSlice []Transaction
 
 // Val implements marsha.StructSlicePtr
-func (ms *Transactions) Val() []marsha.StructPtr {
-	models := make([]marsha.StructPtr, 0, len(*ms))
-	for i := range *ms {
-		models = append(models, &(*ms)[i])
+func (txs *TransactionSlice) Val() []marsha.StructPtr {
+	models := make([]marsha.StructPtr, 0, len(*txs))
+	for i := range *txs {
+		models = append(models, &(*txs)[i])
 	}
 	return models
 }
 
 // NewStructPtr implements cborgen.StructSlicePtr
-func (*Transactions) NewStructPtr() marsha.StructPtr { return new(Transaction) }
+func (*TransactionSlice) NewStructPtr() marsha.StructPtr { return new(Transaction) }
 
 // Append implements cborgen.StructSlicePtr
-func (ms *Transactions) Append(m cborgen.StructPtr) { *ms = append(*ms, *(m.(*Transaction))) }
+func (txs *TransactionSlice) Append(m cborgen.StructPtr) { *txs = append(*txs, *(m.(*Transaction))) }
+
+// Size calculates the estimated occupied memory of TransactionSlice in bytes.
+func (txs TransactionSlice) Size() uint64 {
+	var size uint64 = 0
+	for _, tx := range []Transaction(txs) {
+		size += tx.Size()
+	}
+	return size
+}
 
 // TransactionExt extends Transaction to hold some useful data that can be computed once and used in multiple places.
 type TransactionExt struct {
@@ -91,12 +118,44 @@ type TransactionExt struct {
 	Hash TransactionHash
 
 	// Pointer to the unmarshaled Transaction.Extra field
-	ExtraUnmarshaled *interface{}
+	ExtraUnmarshaled ExtraPtr
 }
 
-// Size is the estimated occupied memory of TransactionExt.
-func (t *TransactionExt) Size() int {
-	return int(unsafe.Sizeof(t)) + t.Transaction.Size() + len(t.Bytes) + len(t.Hash)
+// Size calculates the estimated occupied memory of TransactionExt in bytes.
+func (tx *TransactionExt) Size() uint64 {
+	size := uint64(unsafe.Sizeof(tx)) +
+		tx.Transaction.Size() +
+		uint64(len(tx.Bytes)+len(tx.Hash))
+	if tx.ExtraUnmarshaled != nil {
+		size += tx.ExtraUnmarshaled.Size()
+	}
+	return size
+}
+
+// TransactionSlice is a slice of pointers to TransactionExtSlice
+type TransactionExtSlice []*TransactionExt
+
+// Raw returns the wrapped Transactions.
+func (txxs TransactionExtSlice) Raw() TransactionSlice {
+	return TransactionSliceFromExtSlice(txxs)
+}
+
+// Size calculates the estimated occupied memory of TransactionExtSlice in bytes.
+func (txxs TransactionExtSlice) Size() uint64 {
+	var size uint64 = 0
+	for _, txx := range []*TransactionExt(txxs) {
+		size += txx.Size()
+	}
+	return size
+}
+
+// RawSize calculates the estimated occupied memory of underlying Transactions in bytes.
+func (txxs TransactionExtSlice) RawSize() uint64 {
+	var size uint64 = 0
+	for _, txx := range []*TransactionExt(txxs) {
+		size += txx.Transaction.Size()
+	}
+	return size
 }
 
 // BlockHeader defines a block header that can be encoded into CBOR or JSON representation.
@@ -135,6 +194,18 @@ func (bh BlockHeader) Ptr() marsha.StructPtr { return &bh }
 // Val implements marsha.StructPtr
 func (bh *BlockHeader) Val() marsha.Struct { return *bh }
 
+// Size calculates the estimated occupied memory of BlockHeader in bytes.
+func (bh *BlockHeader) Size() uint64 {
+	return uint64(
+		int(unsafe.Sizeof(bh)) +
+			len(bh.Creator) +
+			len(bh.PrevHashes)*HashSize +
+			len(bh.TxRoot) +
+			len(bh.Extra) +
+			len(bh.Sig),
+	)
+}
+
 // BlockHeaderExt extends BlockHeader to hold some useful data that can be computed once and used in multiple places.
 type BlockHeaderExt struct {
 	*BlockHeader
@@ -146,7 +217,18 @@ type BlockHeaderExt struct {
 	Hash BlockHash
 
 	// Pointer to the unmarshaled Transaction.Extra field
-	ExtraUnmarshaled *interface{}
+	ExtraUnmarshaled ExtraPtr
+}
+
+// Size calculates the estimated occupied memory of BlockHeaderExt in bytes.
+func (bhx *BlockHeaderExt) Size() uint64 {
+	size := uint64(unsafe.Sizeof(bhx)) +
+		bhx.BlockHeader.Size() +
+		uint64(len(bhx.Bytes)+len(bhx.Hash))
+	if bhx.ExtraUnmarshaled != nil {
+		size += bhx.ExtraUnmarshaled.Size()
+	}
+	return size
 }
 
 // Block defines a block that can be encoded into CBOR or JSON representation.
@@ -155,8 +237,8 @@ type Block struct {
 	// Block header
 	Header BlockHeader `json:"header"`
 
-	// Transactions contained in the block
-	Txs Transactions `json:"transactions,omitempty"`
+	// TransactionSlice contained in the block
+	Txs TransactionSlice `json:"transactions,omitempty"`
 }
 
 // Ptr implements marsha.Struct
@@ -165,13 +247,51 @@ func (b Block) Ptr() marsha.StructPtr { return &b }
 // Val implements marsha.StructPtr
 func (b *Block) Val() marsha.Struct { return *b }
 
+// Size calculates the estimated occupied memory of Block in bytes.
+func (b *Block) Size() uint64 {
+	return uint64(unsafe.Sizeof(b)) + b.Txs.Size()
+}
+
 // BlockExt extends Block to hold some useful data that can be computed once and used in multiple places.
 type BlockExt struct {
-	*Block
+	// block will only be constructed when Raw() is called the first time to prevent unnecessary copying.
+	block *Block
+
+	// CBOR encoded BlockHeader
+	// This will point to the same underlying memory of Header.Bytes and containing TransactionExt.Bytes
+	Bytes []byte
 
 	// Extended block header
 	Header *BlockHeaderExt
 
 	// Extended transactions
-	Txs []*TransactionExt
+	Txs TransactionExtSlice
+}
+
+func (bx *BlockExt) Raw() *Block {
+	if bx.block == nil {
+		bx.block = &Block{
+			Header: *bx.Header.BlockHeader,
+			Txs:    bx.Txs.Raw(),
+		}
+	}
+	return bx.block
+}
+
+// Size calculates the estimated occupied memory of Block in bytes.
+func (bx *BlockExt) Size() uint64 {
+	size := uint64(unsafe.Sizeof(bx)) +
+		uint64(len(bx.Bytes)) +
+		bx.Header.Size() +
+		bx.Txs.Size()
+	return size
+}
+
+// Extra is the interface the struct pointers to be put in TransactionExt.UnmarshaledExtra and
+// BlockHeaderExt.UnmarshaledExtra must implement.
+type ExtraPtr interface {
+	marsha.StructPtr
+
+	// Size calculates the estimated occupied memory of the struct ExtraPtr points to in bytes.
+	Size() uint64
 }

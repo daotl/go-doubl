@@ -103,135 +103,151 @@ func (t *TransactionNoSig) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *TransactionNoSig) UnmarshalCBOR(r io.Reader) error {
+func (t *TransactionNoSig) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = TransactionNoSig{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 6 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Type (model.TransactionType) (uint8)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint8 field")
+		return bytesRead, fmt.Errorf("wrong type for uint8 field")
 	}
 	if extra > math.MaxUint8 {
-		return fmt.Errorf("integer in input was too large for uint8 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint8 field")
 	}
 	t.Type = model.TransactionType(extra)
 	// t.From (bytes.HexBytes) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.From: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.From: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.From = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.From[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.From[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Nonce (uint64) (uint64)
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Nonce = uint64(extra)
 
 	}
 	// t.To (bytes.HexBytes) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.To: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.To: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.To = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.To[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.To[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Data ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Data: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Data: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Data = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Data[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Data[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Extra ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Extra: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Extra: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Extra = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Extra[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Extra[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
-	return nil
+	return bytesRead, nil
 }

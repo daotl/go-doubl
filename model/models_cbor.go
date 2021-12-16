@@ -42,7 +42,7 @@ func (t *Transaction) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.From (crpt.Address) (slice)
+	// t.From (bytes.HexBytes) (slice)
 	if len(t.From) > cbg.ByteArrayMaxLen {
 		return xerrors.Errorf("Byte array in field t.From was too long")
 	}
@@ -61,7 +61,7 @@ func (t *Transaction) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.To (crpt.Address) (slice)
+	// t.To (bytes.HexBytes) (slice)
 	if len(t.To) > cbg.ByteArrayMaxLen {
 		return xerrors.Errorf("Byte array in field t.To was too long")
 	}
@@ -115,207 +115,226 @@ func (t *Transaction) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *Transaction) UnmarshalCBOR(r io.Reader) error {
+func (t *Transaction) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = Transaction{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 7 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Type (model.TransactionType) (uint8)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint8 field")
+		return bytesRead, fmt.Errorf("wrong type for uint8 field")
 	}
 	if extra > math.MaxUint8 {
-		return fmt.Errorf("integer in input was too large for uint8 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint8 field")
 	}
 	t.Type = TransactionType(extra)
-	// t.From (crpt.Address) (slice)
+	// t.From (bytes.HexBytes) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.From: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.From: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.From = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.From[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.From[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Nonce (uint64) (uint64)
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Nonce = uint64(extra)
 
 	}
-	// t.To (crpt.Address) (slice)
+	// t.To (bytes.HexBytes) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.To: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.To: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.To = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.To[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.To[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Data ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Data: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Data: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Data = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Data[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Data[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Extra ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Extra: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Extra: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Extra = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Extra[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Extra[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Sig (crpt.Signature) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Sig: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Sig: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Sig = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Sig[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Sig[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
-	return nil
+	return bytesRead, nil
 }
 
-func (t *BlockHeader) InitNilEmbeddedStruct() {
-	if t != nil {
+func (bh *BlockHeader) InitNilEmbeddedStruct() {
+	if bh != nil {
 	}
 }
 
 var lengthBufBlockHeader = []byte{136}
 
-func (t *BlockHeader) MarshalCBOR(w io.Writer) error {
-	if t == nil {
+func (bh *BlockHeader) MarshalCBOR(w io.Writer) error {
+	if bh == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.InitNilEmbeddedStruct()
+	bh.InitNilEmbeddedStruct()
 	if _, err := w.Write(lengthBufBlockHeader); err != nil {
 		return err
 	}
 
 	scratch := make([]byte, 9)
 
-	// t.Creator (crpt.Address) (slice)
-	if len(t.Creator) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Creator was too long")
+	// bh.Creator (bytes.HexBytes) (slice)
+	if len(bh.Creator) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field bh.Creator was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Creator))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(bh.Creator))); err != nil {
 		return err
 	}
 
-	if _, err := w.Write(t.Creator[:]); err != nil {
+	if _, err := w.Write(bh.Creator[:]); err != nil {
 		return err
 	}
 
-	// t.Time (model.Timestamp) (uint64)
+	// bh.Time (model.Timestamp) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Time)); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(bh.Time)); err != nil {
 		return err
 	}
 
-	// t.PrevHashes ([][]uint8) (slice)
-	if len(t.PrevHashes) > cbg.MaxLength {
-		return xerrors.Errorf("Slice value in field t.PrevHashes was too long")
+	// bh.PrevHashes ([][]uint8) (slice)
+	if len(bh.PrevHashes) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field bh.PrevHashes was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.PrevHashes))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(bh.PrevHashes))); err != nil {
 		return err
 	}
-	for _, v := range t.PrevHashes {
+	for _, v := range bh.PrevHashes {
 		if len(v) > cbg.ByteArrayMaxLen {
 			return xerrors.Errorf("Byte array in field v was too long")
 		}
@@ -329,130 +348,137 @@ func (t *BlockHeader) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Height (model.BlockHeight) (uint64)
+	// bh.Height (model.BlockHeight) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Height)); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(bh.Height)); err != nil {
 		return err
 	}
 
-	// t.TxRoot ([]uint8) (slice)
-	if len(t.TxRoot) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.TxRoot was too long")
+	// bh.TxRoot ([]uint8) (slice)
+	if len(bh.TxRoot) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field bh.TxRoot was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.TxRoot))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(bh.TxRoot))); err != nil {
 		return err
 	}
 
-	if _, err := w.Write(t.TxRoot[:]); err != nil {
+	if _, err := w.Write(bh.TxRoot[:]); err != nil {
 		return err
 	}
 
-	// t.TxCount (uint64) (uint64)
+	// bh.TxCount (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.TxCount)); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(bh.TxCount)); err != nil {
 		return err
 	}
 
-	// t.Extra ([]uint8) (slice)
-	if len(t.Extra) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Extra was too long")
+	// bh.Extra ([]uint8) (slice)
+	if len(bh.Extra) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field bh.Extra was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Extra))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(bh.Extra))); err != nil {
 		return err
 	}
 
-	if _, err := w.Write(t.Extra[:]); err != nil {
+	if _, err := w.Write(bh.Extra[:]); err != nil {
 		return err
 	}
 
-	// t.Sig (crpt.Signature) (slice)
-	if len(t.Sig) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Sig was too long")
+	// bh.Sig (crpt.Signature) (slice)
+	if len(bh.Sig) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field bh.Sig was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Sig))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(bh.Sig))); err != nil {
 		return err
 	}
 
-	if _, err := w.Write(t.Sig[:]); err != nil {
+	if _, err := w.Write(bh.Sig[:]); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *BlockHeader) UnmarshalCBOR(r io.Reader) error {
-	*t = BlockHeader{}
-	t.InitNilEmbeddedStruct()
+func (bh *BlockHeader) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
+	*bh = BlockHeader{}
+	bh.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 8 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.Creator (crpt.Address) (slice)
+	// bh.Creator (bytes.HexBytes) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Creator: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("bh.Creator: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
-		t.Creator = make([]uint8, extra)
+		bh.Creator = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Creator[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, bh.Creator[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
-	// t.Time (model.Timestamp) (uint64)
+	// bh.Time (model.Timestamp) (uint64)
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
-		t.Time = Timestamp(extra)
+		bh.Time = Timestamp(extra)
 
 	}
-	// t.PrevHashes ([][]uint8) (slice)
+	// bh.PrevHashes ([][]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.PrevHashes: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("bh.PrevHashes: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
-		t.PrevHashes = make([][]uint8, extra)
+		bh.PrevHashes = make([][]uint8, extra)
 	}
 
 	for i := 0; i < int(extra); i++ {
@@ -461,120 +487,134 @@ func (t *BlockHeader) UnmarshalCBOR(r io.Reader) error {
 			var extra uint64
 			var err error
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.ByteArrayMaxLen {
-				return fmt.Errorf("t.PrevHashes[i]: byte array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("bh.PrevHashes[i]: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
-				return fmt.Errorf("expected byte array")
+				return bytesRead, fmt.Errorf("expected byte array")
 			}
 
 			if extra > 0 {
-				t.PrevHashes[i] = make([]uint8, extra)
+				bh.PrevHashes[i] = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(br, t.PrevHashes[i][:]); err != nil {
-				return err
+			if read, err := io.ReadFull(br, bh.PrevHashes[i][:]); err != nil {
+				return bytesRead, err
+			} else {
+				bytesRead += read
 			}
 		}
 	}
 
-	// t.Height (model.BlockHeight) (uint64)
+	// bh.Height (model.BlockHeight) (uint64)
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
-		t.Height = BlockHeight(extra)
+		bh.Height = BlockHeight(extra)
 
 	}
-	// t.TxRoot ([]uint8) (slice)
+	// bh.TxRoot ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.TxRoot: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("bh.TxRoot: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
-		t.TxRoot = make([]uint8, extra)
+		bh.TxRoot = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.TxRoot[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, bh.TxRoot[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
-	// t.TxCount (uint64) (uint64)
+	// bh.TxCount (uint64) (uint64)
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
-		t.TxCount = uint64(extra)
+		bh.TxCount = uint64(extra)
 
 	}
-	// t.Extra ([]uint8) (slice)
+	// bh.Extra ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Extra: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("bh.Extra: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
-		t.Extra = make([]uint8, extra)
+		bh.Extra = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Extra[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, bh.Extra[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
-	// t.Sig (crpt.Signature) (slice)
+	// bh.Sig (crpt.Signature) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Sig: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("bh.Sig: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
-		t.Sig = make([]uint8, extra)
+		bh.Sig = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Sig[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, bh.Sig[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
-	return nil
+	return bytesRead, nil
 }
 
 func (t *Block) InitNilEmbeddedStruct() {
@@ -601,7 +641,7 @@ func (t *Block) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Txs (model.Transactions) (slice)
+	// t.Txs (model.TransactionSlice) (slice)
 	if len(t.Txs) > cbg.MaxLength {
 		return xerrors.Errorf("Slice value in field t.Txs was too long")
 	}
@@ -617,47 +657,52 @@ func (t *Block) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *Block) UnmarshalCBOR(r io.Reader) error {
+func (t *Block) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = Block{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 2 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Header (model.BlockHeader) (struct)
 
 	{
 
-		if err := t.Header.UnmarshalCBOR(br); err != nil {
-			return xerrors.Errorf("unmarshaling t.Header: %w", err)
+		if read, err := t.Header.UnmarshalCBOR(br); err != nil {
+			return bytesRead, xerrors.Errorf("unmarshaling t.Header: %w", err)
+		} else {
+			bytesRead += read
 		}
 
 	}
-	// t.Txs (model.Transactions) (slice)
+	// t.Txs (model.TransactionSlice) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Txs: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Txs: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -667,12 +712,14 @@ func (t *Block) UnmarshalCBOR(r io.Reader) error {
 	for i := 0; i < int(extra); i++ {
 
 		var v Transaction
-		if err := v.UnmarshalCBOR(br); err != nil {
-			return err
+		if read, err := v.UnmarshalCBOR(br); err != nil {
+			return bytesRead, err
+		} else {
+			bytesRead += read
 		}
 
 		t.Txs[i] = v
 	}
 
-	return nil
+	return bytesRead, nil
 }
