@@ -94,10 +94,10 @@ func GenTestModels() {
 
 	TestTransactionSlice = m.TransactionSlice{TestTransaction, TestTransaction}
 
-	TestBlockHeader = GenTestBlockHeaderWithExtra([]byte{0x4, 0x13, 0x52})
+	TestBlockHeader = *GenTestBlockHeaderWithExtra([]byte{0x4, 0x13, 0x52})
 
 	TestBlock = m.Block{
-		Header: TestBlockHeader,
+		Header: &TestBlockHeader,
 		Txs:    TestTransactionSlice,
 	}
 }
@@ -139,8 +139,8 @@ func GenRandomTransactionExtSlice(min, max int) m.TransactionExtSlice {
 }
 
 // GenTestBlockHeaderWithExtra creates a BlockHeader for test with given Extra data.
-func GenTestBlockHeaderWithExtra(extraBytes []byte) m.BlockHeader {
-	return m.BlockHeader{
+func GenTestBlockHeaderWithExtra(extraBytes []byte) *m.BlockHeader {
+	return &m.BlockHeader{
 		Creator:    TestAddress,
 		Time:       1525392000,
 		PrevHashes: []m.BlockHash{TestHash},
@@ -150,6 +150,67 @@ func GenTestBlockHeaderWithExtra(extraBytes []byte) m.BlockHeader {
 		Extra:      extraBytes,
 		Sig:        TestSignature,
 	}
+}
+
+// GenRandomBlockHeader creates a random BlockHeader for test with the given number of previous
+// block hashes and Extra data.
+func GenRandomBlockHeader(prevHashCount int, extraBytes []byte) *m.BlockHeader {
+	bh := GenTestBlockHeaderWithExtra(extraBytes)
+	bh.PrevHashes = make([]m.BlockHash, prevHashCount)
+	for i := 0; i < prevHashCount; i++ {
+		bh.PrevHashes[i] = GenRandomHash()
+	}
+	return bh
+}
+
+// GenRandomBlockHeaders creates random BlockHeaderExts for test with the given number of previous
+// block hashes and Extra data.
+func GenRandomBlockHeaderExts(min, max, prevHashCount int, extraBytes []byte) []*m.BlockHeaderExt {
+	min, max = FixCountRange(min, max)
+	n := min + rand.Int()%(max-min+1)
+	bhxs := make([]*m.BlockHeaderExt, 0, n)
+	for i := 0; i < n; i++ {
+		bh := GenRandomBlockHeader(prevHashCount, extraBytes)
+		bx, err := Util.ExtendBlockHeader(bh)
+		if err != nil {
+			panic(err)
+		}
+		bhxs = append(bhxs, bx)
+	}
+	return bhxs
+}
+
+// GenRandomBlock creates a random Block for test with the given number of previous block hashes,
+// Extra data and Transactions.
+func GenRandomBlock(prevHashCount int, extraBytes []byte, txCount int) *m.BlockExt {
+	bh := GenRandomBlockHeader(prevHashCount, extraBytes)
+	bh.TxCount = uint64(txCount)
+	txs := make([]m.Transaction, txCount)
+	for i := 0; i < txCount; i++ {
+		txs[i] = *GenRandomTransaction()
+	}
+	var err error
+	if bh.TxRoot, err = Util.GenRootHashFromTransactionSlice(txs); err != nil {
+		panic(err)
+	}
+
+	bx, err := Util.ExtendBlock(&m.Block{Header: bh, Txs: txs})
+	if err != nil {
+		panic(err)
+	}
+	return bx
+}
+
+// GenRandomBlocks creates random Blocks for test with the given number of previous block hashes,
+// Extra data and Transactions.
+func GenRandomBlocks(min, max, prevHashCount int, extraBytes []byte, txCount int) []*m.BlockExt {
+	min, max = FixCountRange(min, max)
+	n := min + rand.Int()%(max-min+1)
+	bxs := make([]*m.BlockExt, 0, n)
+	for i := 0; i < n; i++ {
+		bxs = append(bxs, GenRandomBlock(prevHashCount, extraBytes, txCount))
+	}
+	return bxs
 }
 
 // GenRandomHash generates a random hash for test.
