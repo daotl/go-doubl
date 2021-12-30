@@ -235,7 +235,7 @@ func (bhx *BlockHeaderExt) Size() uint64 {
 type Block struct {
 
 	// Block header
-	Header BlockHeader `json:"header"`
+	Header *BlockHeader `json:"header"`
 
 	// TransactionSlice contained in the block
 	Txs TransactionSlice `json:"transactions,omitempty"`
@@ -249,7 +249,7 @@ func (b *Block) Val() marsha.Struct { return *b }
 
 // Size calculates the estimated occupied memory of Block in bytes.
 func (b *Block) Size() uint64 {
-	return uint64(unsafe.Sizeof(b)) + b.Txs.Size()
+	return uint64(unsafe.Sizeof(b)) + b.Header.Size() + b.Txs.Size()
 }
 
 // BlockExt extends Block to hold some useful data that can be computed once and used in multiple places.
@@ -271,7 +271,7 @@ type BlockExt struct {
 func (bx *BlockExt) Raw() *Block {
 	if bx.block == nil {
 		bx.block = &Block{
-			Header: *bx.Header.BlockHeader,
+			Header: bx.Header.BlockHeader,
 			Txs:    bx.Txs.Raw(),
 		}
 	}

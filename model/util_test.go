@@ -38,24 +38,24 @@ func TestUtil(t *testing.T) {
 		}
 		h := ut.GenRootHashFromTransactionHashes(txhs)
 
-		h_, err := ut.GenRootHashFromTransactions(txs)
+		h_, err := ut.GenRootHashFromTransactionSlice(txs)
 		req.NoError(err)
 		assr.Equal(h, h_)
 
 		txxs, err := ut.ExtendTransactionSlice(txs)
 		req.NoError(err)
-		h_ = ut.GenRootHashFromTransactionExts(txxs)
+		h_ = ut.GenRootHashFromTransactionExtSlice(txxs)
 		assr.Equal(h, h_)
 	})
 
 	t.Run("Block bytes operations", func(t *testing.T) {
 		b := &Block{
-			Header: test.TestBlockHeader,
+			Header: &test.TestBlockHeader,
 			Txs:    test.TestTransactionSlice,
 		}
 		bx, err := ut.ExtendBlock(b)
 		req.NoError(err)
-		bhx, err := ut.ExtendBlockHeader(&b.Header)
+		bhx, err := ut.ExtendBlockHeader(b.Header)
 		req.NoError(err)
 		txxs, err := ut.ExtendTransactionSlice(b.Txs)
 		req.NoError(err)

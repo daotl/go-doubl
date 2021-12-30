@@ -255,7 +255,7 @@ func (u *Util) BlockHeaderExtFromBytes(bin []byte) (*BlockHeaderExt, error) {
 
 // ExtendBlock extends a Block into a BlockExt.
 func (u *Util) ExtendBlock(b *Block) (*BlockExt, error) {
-	bhx, err := u.ExtendBlockHeader(&b.Header)
+	bhx, err := u.ExtendBlockHeader(b.Header)
 	if err != nil {
 		return nil, err
 	}
@@ -324,8 +324,8 @@ func (u *Util) GenRootHashFromTransactionSlice(txs TransactionSlice) (Transactio
 	return u.Crpt.MerkleHashFromByteSlices(txhs), nil
 }
 
-// GenRootHashFromTransactionExts computes the merkle tree root hash from TransactionExtSlice.
-func (u *Util) GenRootHashFromTransactionExts(txxs TransactionExtSlice) TransactionsRootHash {
+// GenRootHashFromTransactionExtSlice computes the merkle tree root hash from TransactionExtSlice.
+func (u *Util) GenRootHashFromTransactionExtSlice(txxs TransactionExtSlice) TransactionsRootHash {
 	txhs := make([][]byte, len(txxs))
 	for i, txx := range txxs {
 		txhs[i] = txx.Hash
