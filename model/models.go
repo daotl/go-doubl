@@ -25,8 +25,8 @@ const (
 	TransactionCborInitialLength = 1
 
 	// BlockHeader is serialized as a CBOR array
-	// BlockHeader initial byte: major type 4 (100) + map length 8 (01000)
-	BlockHeaderCborInitial       = byte(0b100_01000)
+	// BlockHeader initial byte: major type 4 (100) + map length 9 (01001)
+	BlockHeaderCborInitial       = byte(0b100_01001)
 	BlockHeaderCborInitialLength = 1
 
 	// Block is serialized as a CBOR array
@@ -178,6 +178,12 @@ type BlockHeader struct {
 
 	// Number of transactions contained in the block
 	TxCount uint64 `json:"transactionCount"`
+
+	// Arbitrary byte array returned by the ACEI application after executing and commiting the previous block.
+	// It serves as the basis for validating any merkle proofs that comes from the ACEI application
+	// and represents the state of the actual application rather than the state of the ledger itself.
+	// The first block's block.Header.AppHash is given by ResponseInitLedger.app_hash in ACEI.
+	AppHash []byte `json:"apphash,omitempty"`
 
 	// Extra metadata (optional)
 	// This can be used for e.g., consensus-specific data
