@@ -46,7 +46,10 @@ func (n BlockHeight) Encode() []byte {
 	return enc
 }
 
-// Decode block number from big endian encoded bytes.
+// DecodeBlockHeight decodes block number from big endian encoded bytes.
 func DecodeBlockHeight(bin []byte) BlockHeight {
 	return BlockHeight(binary.BigEndian.Uint64(bin))
 }
+
+// LedgerID is the hash of the transaction that created the ledger.
+type LedgerID = TransactionHash
