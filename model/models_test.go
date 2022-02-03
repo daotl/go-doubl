@@ -21,8 +21,9 @@ func TestMarshalUnmarshal(t *testing.T) {
 	t.Run("Transaction.MarshalCBOR/UnmarshalCBOR", func(t *testing.T) {
 		tx := &test.TestTransaction
 		var b bytes.Buffer
-		err := tx.MarshalCBOR(&b)
+		n, err := tx.MarshalCBOR(&b)
 		req.NoError(err)
+		req.Equal(b.Len(), n)
 		bin := b.Bytes()
 		fmt.Println("Serialized Transaction size: ", len(bin))
 		fmt.Printf("%02x\n", bin)
@@ -104,8 +105,9 @@ func TestMarshalUnmarshal(t *testing.T) {
 	t.Run("BlockHeader.MarshalCBOR/UnmarshalCBOR", func(t *testing.T) {
 		bh := &test.TestBlockHeader
 		var b bytes.Buffer
-		err := bh.MarshalCBOR(&b)
+		n, err := bh.MarshalCBOR(&b)
 		req.NoError(err)
+		req.Equal(b.Len(), n)
 		bin := b.Bytes()
 		fmt.Println("Serialized BlockHeader size: ", len(bin))
 		bh2 := &BlockHeader{}

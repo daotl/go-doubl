@@ -25,94 +25,119 @@ func (t *Transaction) InitNilEmbeddedStruct() {
 
 var lengthBufTransaction = []byte{135}
 
-func (t *Transaction) MarshalCBOR(w io.Writer) error {
+func (t *Transaction) MarshalCBOR(w io.Writer) (n int, err error) {
 	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
+		return w.Write(cbg.CborNull)
 	}
 	t.InitNilEmbeddedStruct()
-	if _, err := w.Write(lengthBufTransaction); err != nil {
-		return err
+	if n_, err := w.Write(lengthBufTransaction); err != nil {
+		return n_, err
+	} else {
+		n += n_
 	}
 
 	scratch := make([]byte, 9)
 
 	// t.Type (model.TransactionType) (uint8)
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Type)); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Type)); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.From (bytes.HexBytes) (slice)
 	if len(t.From) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.From was too long")
+		return n, xerrors.Errorf("Byte array in field t.From was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.From))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.From))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
-	if _, err := w.Write(t.From[:]); err != nil {
-		return err
+	if n_, err := w.Write(t.From[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.Nonce (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Nonce)); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Nonce)); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.To (bytes.HexBytes) (slice)
 	if len(t.To) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.To was too long")
+		return n, xerrors.Errorf("Byte array in field t.To was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.To))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.To))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
-	if _, err := w.Write(t.To[:]); err != nil {
-		return err
+	if n_, err := w.Write(t.To[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.Data ([]uint8) (slice)
 	if len(t.Data) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Data was too long")
+		return n, xerrors.Errorf("Byte array in field t.Data was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Data))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Data))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
-	if _, err := w.Write(t.Data[:]); err != nil {
-		return err
+	if n_, err := w.Write(t.Data[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.Extra ([]uint8) (slice)
 	if len(t.Extra) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Extra was too long")
+		return n, xerrors.Errorf("Byte array in field t.Extra was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Extra))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Extra))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
-	if _, err := w.Write(t.Extra[:]); err != nil {
-		return err
+	if n_, err := w.Write(t.Extra[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.Sig (crpt.Signature) (slice)
 	if len(t.Sig) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Sig was too long")
+		return n, xerrors.Errorf("Byte array in field t.Sig was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Sig))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Sig))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
-	if _, err := w.Write(t.Sig[:]); err != nil {
-		return err
+	if n_, err := w.Write(t.Sig[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
-	return nil
+	return n, nil
 }
 
 func (t *Transaction) UnmarshalCBOR(r io.Reader) (int, error) {
@@ -293,112 +318,158 @@ func (t *BlockHeader) InitNilEmbeddedStruct() {
 	}
 }
 
-var lengthBufBlockHeader = []byte{136}
+var lengthBufBlockHeader = []byte{137}
 
-func (t *BlockHeader) MarshalCBOR(w io.Writer) error {
+func (t *BlockHeader) MarshalCBOR(w io.Writer) (n int, err error) {
 	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
+		return w.Write(cbg.CborNull)
 	}
 	t.InitNilEmbeddedStruct()
-	if _, err := w.Write(lengthBufBlockHeader); err != nil {
-		return err
+	if n_, err := w.Write(lengthBufBlockHeader); err != nil {
+		return n_, err
+	} else {
+		n += n_
 	}
 
 	scratch := make([]byte, 9)
 
 	// t.Creator (bytes.HexBytes) (slice)
 	if len(t.Creator) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Creator was too long")
+		return n, xerrors.Errorf("Byte array in field t.Creator was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Creator))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Creator))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
-	if _, err := w.Write(t.Creator[:]); err != nil {
-		return err
+	if n_, err := w.Write(t.Creator[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.Time (model.Timestamp) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Time)); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Time)); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.PrevHashes ([][]uint8) (slice)
 	if len(t.PrevHashes) > cbg.MaxLength {
-		return xerrors.Errorf("Slice value in field t.PrevHashes was too long")
+		return n, xerrors.Errorf("Slice value in field t.PrevHashes was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.PrevHashes))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.PrevHashes))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 	for _, v := range t.PrevHashes {
 		if len(v) > cbg.ByteArrayMaxLen {
-			return xerrors.Errorf("Byte array in field v was too long")
+			return n, xerrors.Errorf("Byte array in field v was too long")
 		}
 
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(v))); err != nil {
-			return err
+		if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(v))); err != nil {
+			return n + n_, err
+		} else {
+			n += n_
 		}
 
-		if _, err := w.Write(v[:]); err != nil {
-			return err
+		if n_, err := w.Write(v[:]); err != nil {
+			return n + n_, err
+		} else {
+			n += n_
 		}
 	}
 
 	// t.Height (model.BlockHeight) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Height)); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Height)); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.TxRoot ([]uint8) (slice)
 	if len(t.TxRoot) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.TxRoot was too long")
+		return n, xerrors.Errorf("Byte array in field t.TxRoot was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.TxRoot))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.TxRoot))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
-	if _, err := w.Write(t.TxRoot[:]); err != nil {
-		return err
+	if n_, err := w.Write(t.TxRoot[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.TxCount (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.TxCount)); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.TxCount)); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
+	}
+
+	// t.AppHash ([]uint8) (slice)
+	if len(t.AppHash) > cbg.ByteArrayMaxLen {
+		return n, xerrors.Errorf("Byte array in field t.AppHash was too long")
+	}
+
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.AppHash))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
+	}
+
+	if n_, err := w.Write(t.AppHash[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.Extra ([]uint8) (slice)
 	if len(t.Extra) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Extra was too long")
+		return n, xerrors.Errorf("Byte array in field t.Extra was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Extra))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Extra))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
-	if _, err := w.Write(t.Extra[:]); err != nil {
-		return err
+	if n_, err := w.Write(t.Extra[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.Sig (crpt.Signature) (slice)
 	if len(t.Sig) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Sig was too long")
+		return n, xerrors.Errorf("Byte array in field t.Sig was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Sig))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Sig))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
-	if _, err := w.Write(t.Sig[:]); err != nil {
-		return err
+	if n_, err := w.Write(t.Sig[:]); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
-	return nil
+	return n, nil
 }
 
 func (t *BlockHeader) UnmarshalCBOR(r io.Reader) (int, error) {
@@ -418,7 +489,7 @@ func (t *BlockHeader) UnmarshalCBOR(r io.Reader) (int, error) {
 		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 8 {
+	if extra != 9 {
 		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -566,6 +637,30 @@ func (t *BlockHeader) UnmarshalCBOR(r io.Reader) (int, error) {
 		t.TxCount = uint64(extra)
 
 	}
+	// t.AppHash ([]uint8) (slice)
+
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return bytesRead, err
+	}
+	bytesRead += read
+
+	if extra > cbg.ByteArrayMaxLen {
+		return bytesRead, fmt.Errorf("t.AppHash: byte array too large (%d)", extra)
+	}
+	if maj != cbg.MajByteString {
+		return bytesRead, fmt.Errorf("expected byte array")
+	}
+
+	if extra > 0 {
+		t.AppHash = make([]uint8, extra)
+	}
+
+	if read, err := io.ReadFull(br, t.AppHash[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
+	}
 	// t.Extra ([]uint8) (slice)
 
 	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
@@ -624,37 +719,44 @@ func (t *Block) InitNilEmbeddedStruct() {
 
 var lengthBufBlock = []byte{130}
 
-func (t *Block) MarshalCBOR(w io.Writer) error {
+func (t *Block) MarshalCBOR(w io.Writer) (n int, err error) {
 	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
+		return w.Write(cbg.CborNull)
 	}
 	t.InitNilEmbeddedStruct()
-	if _, err := w.Write(lengthBufBlock); err != nil {
-		return err
+	if n_, err := w.Write(lengthBufBlock); err != nil {
+		return n_, err
+	} else {
+		n += n_
 	}
 
 	scratch := make([]byte, 9)
 
 	// t.Header (model.BlockHeader) (struct)
-	if err := t.Header.MarshalCBOR(w); err != nil {
-		return err
+	if n_, err := t.Header.MarshalCBOR(w); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 
 	// t.Txs (model.TransactionSlice) (slice)
 	if len(t.Txs) > cbg.MaxLength {
-		return xerrors.Errorf("Slice value in field t.Txs was too long")
+		return n, xerrors.Errorf("Slice value in field t.Txs was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Txs))); err != nil {
-		return err
+	if n_, err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Txs))); err != nil {
+		return n + n_, err
+	} else {
+		n += n_
 	}
 	for _, v := range t.Txs {
-		if err := v.MarshalCBOR(w); err != nil {
-			return err
+		if n_, err := v.MarshalCBOR(w); err != nil {
+			return n + n_, err
+		} else {
+			n += n_
 		}
 	}
-	return nil
+	return n, nil
 }
 
 func (t *Block) UnmarshalCBOR(r io.Reader) (int, error) {

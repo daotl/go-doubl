@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"errors"
+	"io"
 	"unsafe"
 
 	"github.com/crpt/go-crpt"
@@ -114,31 +115,46 @@ func (u *Util) TransactionExtSliceFromBytesSlice(bins [][]byte) (TransactionExtS
 	return txxs, nil
 }
 
-// TransactionExtSliceFromTransactionsBytes unmarshal a single Transactions bytes into
-// TransactionSlice and extend them into TransactionExtSlice. maxCount should be equal or larger
-// than the transaction count for the best performance, but it's not necessary.
-// TransactionExt.Bytes points to the same underlying memory as `bins` for performance consideration,
-// it's not safe to modify it anywhere.
-func (u *Util) TransactionExtSliceFromTransactionsBytesWithMaxCount(bin []byte, maxCount int,
-) (TransactionExtSlice, error) {
-	txxs := make(TransactionExtSlice, 0, maxCount)
-	for i := 0; i < len(bin); {
-		txx, err := u.TransactionExtFromBytes(bin[i:])
+// TransactionExtSliceFromTransactionsBytes unmarshal a single Transactions bytes
+// into TransactionSlice and extend them into TransactionExtSlice.
+//
+// TransactionExt.Bytes points to the same underlying memory
+// as `bins` for performance consideration, it's not safe to modify it anywhere.
+func (u *Util) TransactionExtSliceFromTransactionsBytes(bin []byte) (TransactionExtSlice, error) {
+	r := bytes.NewReader(bin)
+	majorType, count, offset, err := cbg.CborReadHeader(r)
+	if err != nil {
+		return nil, err
+	} else if majorType != cbg.MajArray {
+		return nil, ErrInvalidBytes
+	}
+
+	txxs := make(TransactionExtSlice, 0, count)
+	for i := uint64(0); i < count; i++ {
+		txx, err := u.TransactionExtFromBytes(bin[offset:])
 		if err != nil {
 			return nil, err
 		}
 		txxs = append(txxs, txx)
-		i += len(txx.Bytes)
+		offset += len(txx.Bytes)
 	}
 	return txxs, nil
 }
 
-// TransactionExtSliceFromTransactionsBytes unmarshal a single Transactions bytes into
-// TransactionSlice and extend them into TransactionExtSlice.
-// TransactionExt.Bytes points to the same underlying memory as `bins` for performance consideration,
-// it's not safe to modify it anywhere.
-func (u *Util) TransactionExtSliceFromTransactionsBytes(bin []byte) (TransactionExtSlice, error) {
-	return u.TransactionExtSliceFromTransactionsBytesWithMaxCount(bin, 0)
+// MarshalTransactionExtSlice encodes and writes the transactions in the TransactionExtSlice to io.Writer.
+func (u *Util) WriteMarshalTransactionExtSliceTo(txxs TransactionExtSlice, w io.Writer,
+) (n int, err error) {
+	if n, err = cbg.WriteMajorTypeHeaderBuf([]byte{}, w, cbg.MajArray, uint64(len(txxs))); err != nil {
+		return n, err
+	}
+	for _, txx := range txxs {
+		n_, err := w.Write(txx.Bytes)
+		n += n_
+		if err != nil {
+			return n, err
+		}
+	}
+	return n, nil
 }
 
 // HashTransaction computes the hash of the transaction.
@@ -267,6 +283,7 @@ func (u *Util) ExtendBlock(b *Block) (*BlockExt, error) {
 
 	return &BlockExt{
 		block:  b,
+		util:   u,
 		Header: bhx,
 		Txs:    txxs,
 	}, nil
@@ -284,7 +301,9 @@ func (u *Util) ExtractBlockHeaderExtFromBlockBytes(bin []byte) (*BlockHeaderExt,
 // performance consideration, it's not safe to modify them anywhere.
 // NOTE: ExtraUnmarshaled is not set yet.
 func (u *Util) BlockExtFromBytes(bin []byte) (bx *BlockExt, err error) {
-	bx = &BlockExt{}
+	bx = &BlockExt{
+		util: u,
+	}
 
 	bx.Header, err = u.ExtractBlockHeaderExtFromBlockBytes(bin)
 	if err != nil {
@@ -292,13 +311,12 @@ func (u *Util) BlockExtFromBytes(bin []byte) (bx *BlockExt, err error) {
 	}
 
 	i := BlockCborInitialLength + len(bx.Header.Bytes)
-	maj, l, read, err := cbg.CborReadHeader(bytes.NewReader(bin[i:]))
-	if err != nil || maj != cbg.MajArray {
+	if i >= len(bin) {
 		return nil, ErrInvalidBytes
 	}
-
-	if l > 0 {
-		bx.Txs, err = u.TransactionExtSliceFromTransactionsBytesWithMaxCount(bin[i+read:], int(l))
+	// Check that there are transactions
+	if bin[i] != cbg.CborNull[0] {
+		bx.Txs, err = u.TransactionExtSliceFromTransactionsBytes(bin[i:])
 		if err != nil {
 			return nil, err
 		}

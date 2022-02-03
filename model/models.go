@@ -1,8 +1,10 @@
 package model
 
 import (
+	"io"
 	"unsafe"
 
+	cbg "github.com/daotl/cbor-gen"
 	"github.com/daotl/go-marsha"
 	"github.com/daotl/go-marsha/cborgen"
 )
@@ -20,20 +22,22 @@ const (
 	SignatureCborDataLength    = 64
 
 	// Transaction is serialized as a CBOR array
-	// Transaction initial byte: major type 4 (100) + map length 7 (00111)
+	// Transaction initial byte: major type 4 (100) + array length 7 (00111)
 	TransactionCborInitial       = byte(0b100_00111)
 	TransactionCborInitialLength = 1
 
 	// BlockHeader is serialized as a CBOR array
-	// BlockHeader initial byte: major type 4 (100) + map length 9 (01001)
+	// BlockHeader initial byte: major type 4 (100) + array length 9 (01001)
 	BlockHeaderCborInitial       = byte(0b100_01001)
 	BlockHeaderCborInitialLength = 1
 
 	// Block is serialized as a CBOR array
-	// Block initial byte: major type 4 (100) + map length 8 (00010)
+	// Block initial byte: major type 4 (100) + array length 2 (00010)
 	BlockCborInitial       = byte(0b100_00010)
 	BlockCborInitialLength = 1
 )
+
+var BlockCborInitialBytes = []byte{BlockCborInitial}
 
 // Transaction defines a transaction that can be encoded into CBOR or JSON representation.
 type Transaction struct {
@@ -263,9 +267,7 @@ type BlockExt struct {
 	// block will only be constructed when Raw() is called the first time to prevent unnecessary copying.
 	block *Block
 
-	// CBOR encoded BlockHeader
-	// This will point to the same underlying memory of Header.Bytes and containing TransactionExt.Bytes
-	Bytes []byte
+	util *Util
 
 	// Extended block header
 	Header *BlockHeaderExt
@@ -287,10 +289,38 @@ func (bx *BlockExt) Raw() *Block {
 // Size calculates the estimated occupied memory of Block in bytes.
 func (bx *BlockExt) Size() uint64 {
 	size := uint64(unsafe.Sizeof(bx)) +
-		uint64(len(bx.Bytes)) +
 		bx.Header.Size() +
 		bx.Txs.Size()
 	return size
+}
+
+// WriteTo writes CBOR encoded block to the io.Writer.
+func (bx *BlockExt) WriteTo(w io.Writer) (n int, err error) {
+	var n_ int
+
+	n_, err = w.Write(BlockCborInitialBytes)
+	n += n_
+	if err != nil {
+		return n, err
+	}
+
+	n_, err = w.Write(bx.Header.Bytes)
+	n += n_
+	if err != nil {
+		return n, err
+	}
+
+	if bx.Txs == nil || bx.Txs.Size() == 0 {
+		n_, err = w.Write(cbg.CborNull)
+	} else {
+		n_, err = bx.util.WriteMarshalTransactionExtSliceTo(bx.Txs, w)
+	}
+	n += n_
+	if err != nil {
+		return n, err
+	}
+
+	return n, nil
 }
 
 // Extra is the interface the struct pointers to be put in TransactionExt.UnmarshaledExtra and
