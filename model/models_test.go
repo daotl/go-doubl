@@ -17,6 +17,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 	req := require.New(t)
 	assr := assert.New(t)
 	mrsh := test.Mrsh
+	ut := test.Util
 
 	t.Run("Transaction.MarshalCBOR/UnmarshalCBOR", func(t *testing.T) {
 		tx := &test.TestTransaction
@@ -131,29 +132,25 @@ func TestMarshalUnmarshal(t *testing.T) {
 	})
 
 	t.Run("Marshal & unmarshal Block", func(t *testing.T) {
-		bh := &test.TestBlock
-		bin, err := mrsh.MarshalStruct(bh)
+		b := &test.TestBlock
+		bin, err := mrsh.MarshalStruct(b)
 		fmt.Println("Serialized Block size: ", len(bin))
 		fmt.Printf("%0x\n", bin)
 		req.NoError(err)
-		bh2 := &Block{}
-		read, err := mrsh.UnmarshalStruct(bin, bh2)
-		req.NoError(err)
-		assr.Equal(bh, bh2)
-		assr.Equal(len(bin), read)
-	})
 
-	t.Run("Marshal & unmarshal Block", func(t *testing.T) {
-		bh := &test.TestBlock
-		bin, err := mrsh.MarshalStruct(bh)
-		fmt.Println("Serialized Block size: ", len(bin))
-		fmt.Printf("%0x\n", bin)
+		b2 := &Block{}
+		read, err := mrsh.UnmarshalStruct(bin, b2)
 		req.NoError(err)
-		bh2 := &Block{}
-		read, err := mrsh.UnmarshalStruct(bin, bh2)
-		req.NoError(err)
-		assr.Equal(bh, bh2)
+		assr.Equal(b, b2)
 		assr.Equal(len(bin), read)
+
+		bx, err := ut.ExtendBlock(b)
+		req.NoError(err)
+		var buf bytes.Buffer
+		n, err := bx.WriteTo(&buf)
+		req.NoError(err)
+		assr.Equal(buf.Len(), int(n))
+		assr.Equal(bin, buf.Bytes())
 	})
 }
 

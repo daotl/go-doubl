@@ -1,6 +1,7 @@
 package model_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,16 +64,22 @@ func TestUtil(t *testing.T) {
 		req.NoError(err)
 		txsBytes, err := ut.Mrsh.MarshalStructSlice(&b.Txs)
 
-		bhx_, err := ut.ExtractBlockHeaderExtFromBlockBytes(bin)
+		bhx_, read1, err := ut.ReadBlockHeaderExtFromBlockStream(bytes.NewReader(bin))
+		//bhx_, err := ut.ExtractBlockHeaderExtFromBlockBytes(bin)
 		req.NoError(err)
 		assr.Equal(bhx, bhx_)
 
-		txxs_, err := ut.TransactionExtSliceFromTransactionsBytes(txsBytes)
+		txxs_, read2, err := ut.ReadTransactionExtSliceFrom(bytes.NewReader(txsBytes))
+		//txxs_, err := ut.TransactionExtSliceFromTransactionsBytes(txsBytes)
 		req.NoError(err)
+		assr.Equal(len(txsBytes), int(read2))
+		assr.Equal(len(bin), int(read1+read2))
 		assr.Equal(txxs, txxs_)
 
-		bx_, err := ut.BlockExtFromBytes(bin)
+		bx_, read, err := ut.ReadBlockExtFrom(bytes.NewReader(bin))
+		//bx_, err := ut.BlockExtFromBytes(bin)
 		req.NoError(err)
+		assr.Equal(len(bin), int(read))
 		assr.Equal(bhx, bx_.Header)
 		assr.Equal(txxs, bx_.Txs)
 		assr.NotEqual(bx, bx_) // Because bx_.block should be nil now (lazy initialized)

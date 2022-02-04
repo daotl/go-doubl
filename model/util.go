@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/ioutil"
+	"sync"
 	"unsafe"
 
 	"github.com/crpt/go-crpt"
@@ -15,10 +17,14 @@ var (
 	ErrInvalidBytes = errors.New("failed to unmarshal because of invalid bytes")
 )
 
+const maxCBORHeaderSize = 9
+
 // Util provides utility methods to work with DOUBL models.
 type Util struct {
 	Mrsh marsha.Marsha
 	Crpt crpt.Crpt
+
+	cborHeaderBufPool sync.Pool
 }
 
 // New creates a new Util with the specified Marsha and Crpt instances.
@@ -26,6 +32,12 @@ func New(mrsh marsha.Marsha, crpt crpt.Crpt) *Util {
 	return &Util{
 		Mrsh: mrsh,
 		Crpt: crpt,
+		cborHeaderBufPool: sync.Pool{
+			New: func() interface{} {
+				b := make([]byte, maxCBORHeaderSize)
+				return &b
+			},
+		},
 	}
 }
 
@@ -57,6 +69,7 @@ func BlocksFromExts(bxs []BlockExt) []Block {
 }
 
 // ExtendTransaction extends a Transaction into a TransactionExt.
+//
 // NOTE: ExtraUnmarshaled is not set yet.
 func (u *Util) ExtendTransaction(tx *Transaction) (*TransactionExt, error) {
 	bin, err := u.Mrsh.MarshalStruct(tx)
@@ -71,6 +84,7 @@ func (u *Util) ExtendTransaction(tx *Transaction) (*TransactionExt, error) {
 }
 
 // ExtendTransaction extends TransactionSlice into TransactionExtSlice.
+//
 // NOTE: ExtraUnmarshaled is not set yet.
 func (u *Util) ExtendTransactionSlice(txs TransactionSlice) (TransactionExtSlice, error) {
 	txxs := make(TransactionExtSlice, len(txs))
@@ -83,10 +97,33 @@ func (u *Util) ExtendTransactionSlice(txs TransactionSlice) (TransactionExtSlice
 	return txxs, nil
 }
 
-// TransactionExtFromBytes unmarshal Transaction and extend it into a TransactionExt.
+// ReadTransactionExtFrom reads and unmarshals the encoded transaction from `r`
+// and extends it into a TransactionExt, it also returns the number of bytes read.
+//
+// NOTE: ExtraUnmarshaled is not set yet.
+func (u *Util) ReadTransactionExtFrom(r io.Reader) (txx *TransactionExt, n int64, err error) {
+	txx = &TransactionExt{
+		Transaction: new(Transaction),
+	}
+	var buf bytes.Buffer
+	tr := io.TeeReader(r, &buf)
+	n_, err := u.Mrsh.NewDecoder(tr).DecodeStruct(txx.Transaction)
+	n = int64(n_)
+	if err != nil {
+		return nil, n, err
+	}
+	txx.Bytes = buf.Bytes()
+	txx.Hash = u.Crpt.Hash(txx.Bytes)
+	return txx, n, err
+}
+
+// TransactionExtFromBytes unmarshals Transaction and extends it into a TransactionExt.
 // TransactionExt.Bytes points to the same underlying memory as `bin` for performance consideration,
 // it's not safe to modify it anywhere.
+//
 // NOTE: ExtraUnmarshaled is not set yet.
+//
+// Deprecated: Use ReadTransactionExtFrom instead.
 func (u *Util) TransactionExtFromBytes(bin []byte) (*TransactionExt, error) {
 	txx := &TransactionExt{
 		Transaction: new(Transaction),
@@ -100,29 +137,63 @@ func (u *Util) TransactionExtFromBytes(bin []byte) (*TransactionExt, error) {
 	return txx, err
 }
 
-// TransactionExtSliceFromBytesSlice unmarshal Transaction byte slices and extend them into TransactionExtSlice.
+// TransactionExtSliceFromBytesSlice unmarshal Transaction byte slices and extends them into TransactionExtSlice.
 // TransactionExt.Bytes points to the same underlying memory as `bins` for performance consideration,
 // it's not safe to modify it anywhere.
+//
 // NOTE: ExtraUnmarshaled is not set yet.
 func (u *Util) TransactionExtSliceFromBytesSlice(bins [][]byte) (TransactionExtSlice, error) {
 	txxs := make(TransactionExtSlice, len(bins))
 	var err error
 	for i, bin := range bins {
-		if txxs[i], err = u.TransactionExtFromBytes(bin); err != nil {
+		if txxs[i], _, err = u.ReadTransactionExtFrom(bytes.NewReader(bin)); err != nil {
 			return nil, err
 		}
 	}
 	return txxs, nil
 }
 
-// TransactionExtSliceFromTransactionsBytes unmarshal a single Transactions bytes
-// into TransactionSlice and extend them into TransactionExtSlice.
+// ReadTransactionExtSliceFrom reads and unmarshals the encoded transactions from `r` and extends
+// them into TransactionExtSlice, it also returns the number of bytes read.
+func (u *Util) ReadTransactionExtSliceFrom(r io.Reader) (
+	txxs TransactionExtSlice, n int64, err error,
+) {
+	scratch := u.cborHeaderBufPool.Get().(*[]byte)
+	defer u.cborHeaderBufPool.Put(scratch)
+	majorType, extra, n_, err := cbg.CborReadHeaderBuf(r, *scratch)
+	n = int64(n_)
+	if err != nil {
+		return nil, n, err
+	} else if majorType == cbg.MajOther && extra == 22 { // CBOR Null, no transaction
+		return nil, n, nil
+	} else if majorType != cbg.MajArray {
+		return nil, n, ErrInvalidBytes
+	}
+
+	txxs = make(TransactionExtSlice, 0, extra)
+	for i := uint64(0); i < extra; i++ {
+		txx, n_, err := u.ReadTransactionExtFrom(r)
+		n += n_
+		if err != nil {
+			return txxs, n, err
+		}
+		txxs = append(txxs, txx)
+	}
+	return txxs, n, nil
+}
+
+// TransactionExtSliceFromTransactionsBytes unmarshals a single Transactions bytes
+// into TransactionSlice and extends them into TransactionExtSlice.
 //
 // TransactionExt.Bytes points to the same underlying memory
 // as `bins` for performance consideration, it's not safe to modify it anywhere.
+//
+// Deprecated: Use ReadTransactionExtSliceFrom instead.
 func (u *Util) TransactionExtSliceFromTransactionsBytes(bin []byte) (TransactionExtSlice, error) {
 	r := bytes.NewReader(bin)
-	majorType, count, offset, err := cbg.CborReadHeader(r)
+	scratch := u.cborHeaderBufPool.Get().(*[]byte)
+	defer u.cborHeaderBufPool.Put(scratch)
+	majorType, count, offset, err := cbg.CborReadHeaderBuf(r, *scratch)
 	if err != nil {
 		return nil, err
 	} else if majorType != cbg.MajArray {
@@ -133,7 +204,7 @@ func (u *Util) TransactionExtSliceFromTransactionsBytes(bin []byte) (Transaction
 	for i := uint64(0); i < count; i++ {
 		txx, err := u.TransactionExtFromBytes(bin[offset:])
 		if err != nil {
-			return nil, err
+			return txxs, err
 		}
 		txxs = append(txxs, txx)
 		offset += len(txx.Bytes)
@@ -144,7 +215,9 @@ func (u *Util) TransactionExtSliceFromTransactionsBytes(bin []byte) (Transaction
 // MarshalTransactionExtSlice encodes and writes the transactions in the TransactionExtSlice to io.Writer.
 func (u *Util) WriteMarshalTransactionExtSliceTo(txxs TransactionExtSlice, w io.Writer,
 ) (n int, err error) {
-	if n, err = cbg.WriteMajorTypeHeaderBuf([]byte{}, w, cbg.MajArray, uint64(len(txxs))); err != nil {
+	scratch := u.cborHeaderBufPool.Get().(*[]byte)
+	defer u.cborHeaderBufPool.Put(scratch)
+	if n, err = cbg.WriteMajorTypeHeaderBuf(*scratch, w, cbg.MajArray, uint64(len(txxs))); err != nil {
 		return n, err
 	}
 	for _, txx := range txxs {
@@ -239,6 +312,7 @@ func (u *Util) HashBlockHeader(bh *BlockHeader) (BlockHash, error) {
 }
 
 // ExtendBlockHeader extends a BlockHeader into a BlockHeaderExt.
+//
 // NOTE: ExtraUnmarshaled is not set yet.
 func (u *Util) ExtendBlockHeader(bh *BlockHeader) (*BlockHeaderExt, error) {
 	bin, err := u.Mrsh.MarshalStruct(bh)
@@ -252,10 +326,33 @@ func (u *Util) ExtendBlockHeader(bh *BlockHeader) (*BlockHeaderExt, error) {
 	}, nil
 }
 
-// BlockHeaderExtFromBytes unmarshal BlockHeader and extend it into a BlockHeaderExt.
+// ReadBlockHeaderExtFrom reads and unmarshals the encoded block header from `r`
+// and extends it into a BlockHeaderExt, it also returns the number of bytes read.
+//
+// NOTE: ExtraUnmarshaled is not set yet.
+func (u *Util) ReadBlockHeaderExtFrom(r io.Reader) (bhx *BlockHeaderExt, n int64, err error) {
+	bhx = &BlockHeaderExt{
+		BlockHeader: new(BlockHeader),
+	}
+	var buf bytes.Buffer
+	tr := io.TeeReader(r, &buf)
+	n_, err := u.Mrsh.NewDecoder(tr).DecodeStruct(bhx.BlockHeader)
+	n = int64(n_)
+	if err != nil {
+		return nil, n, err
+	}
+	bhx.Bytes = buf.Bytes()
+	bhx.Hash = u.Crpt.Hash(bhx.Bytes)
+	return bhx, n, err
+}
+
+// BlockHeaderExtFromBytes unmarshals BlockHeader and extends it into a BlockHeaderExt.
 // BlockHeaderExt.Bytes points to the same underlying memory as `bins` for performance consideration,
 // it's not safe to modify it anywhere.
+//
 // NOTE: ExtraUnmarshaled is not set yet.
+//
+// Deprecated: Use ReadBlockHeaderExtFrom instead.
 func (u *Util) BlockHeaderExtFromBytes(bin []byte) (*BlockHeaderExt, error) {
 	bhx := &BlockHeaderExt{
 		BlockHeader: new(BlockHeader),
@@ -289,17 +386,59 @@ func (u *Util) ExtendBlock(b *Block) (*BlockExt, error) {
 	}, nil
 }
 
-// ExtractBlockHeaderExtFromBlockBytes extract bytes corresponding to the BlockHeader from Block bytes
-// and unmarshal it into a BlockHeaderExt.
+// ReadBlockHeaderExtFromBlockStream reads and unmarshals the encoded block header from byte stream
+// of a Block and unmarshals it into a BlockHeaderExt.
+//
 // NOTE: ExtraUnmarshaled is not set yet.
+func (u *Util) ReadBlockHeaderExtFromBlockStream(r io.Reader) (bhx *BlockHeaderExt, n int64, err error) {
+	if n, err = io.CopyN(ioutil.Discard, r, BlockCborInitialLength); err != nil || n != BlockHeaderCborInitialLength {
+		return nil, n, err
+	}
+	bhx, n_, err := u.ReadBlockHeaderExtFrom(r)
+	return bhx, n + n_, err
+}
+
+// ExtractBlockHeaderExtFromBlockBytes extracts bytes corresponding to the
+// BlockHeader from Block bytes and unmarshals it into a BlockHeaderExt.
+//
+// NOTE: ExtraUnmarshaled is not set yet.
+//
+// Deprecated: Use ReadBlockHeaderExtFromBlockStream instead.
 func (u *Util) ExtractBlockHeaderExtFromBlockBytes(bin []byte) (*BlockHeaderExt, error) {
 	return u.BlockHeaderExtFromBytes(bin[BlockCborInitialLength:])
 }
 
-// BlockExtFromBytes unmarshal Block and extend it into a BlockExt.
+// ReadBlockExtFrom reads and unmarshals the encoded block from `r` and extends it into a BlockExt,
+// it also returns the number of bytes read.
+//
+// NOTE: ExtraUnmarshaled is not set yet.
+func (u *Util) ReadBlockExtFrom(r io.Reader) (bx *BlockExt, n int64, err error) {
+	bx = &BlockExt{
+		util: u,
+	}
+
+	bx.Header, n, err = u.ReadBlockHeaderExtFromBlockStream(r)
+	if err != nil {
+		return nil, n, err
+	}
+
+	var n_ int64
+	bx.Txs, n_, err = u.ReadTransactionExtSliceFrom(r)
+	n += n_
+	if err != nil {
+		return nil, n, err
+	}
+
+	return bx, n, nil
+}
+
+// BlockExtFromBytes unmarshals Block and extends it into a BlockExt.
 // BlockHeaderExt.Bytes and TransactionExt.Bytes point to the same underlying memory as `bins` for
 // performance consideration, it's not safe to modify them anywhere.
+//
 // NOTE: ExtraUnmarshaled is not set yet.
+//
+// Deprecated: Use ReadBlockExtFrom instead.
 func (u *Util) BlockExtFromBytes(bin []byte) (bx *BlockExt, err error) {
 	bx = &BlockExt{
 		util: u,

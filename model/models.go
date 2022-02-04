@@ -126,12 +126,12 @@ type TransactionExt struct {
 }
 
 // Size calculates the estimated occupied memory of TransactionExt in bytes.
-func (tx *TransactionExt) Size() uint64 {
-	size := uint64(unsafe.Sizeof(tx)) +
-		tx.Transaction.Size() +
-		uint64(len(tx.Bytes)+len(tx.Hash))
-	if tx.ExtraUnmarshaled != nil {
-		size += tx.ExtraUnmarshaled.Size()
+func (txx *TransactionExt) Size() uint64 {
+	size := uint64(unsafe.Sizeof(txx)) +
+		txx.Transaction.Size() +
+		uint64(len(txx.Bytes)+len(txx.Hash))
+	if txx.ExtraUnmarshaled != nil {
+		size += txx.ExtraUnmarshaled.Size()
 	}
 	return size
 }
