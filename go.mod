@@ -3,13 +3,13 @@ module github.com/daotl/go-doubl
 go 1.17
 
 require (
-	github.com/crpt/go-crpt v0.5.0
+	github.com/crpt/go-crpt v0.5.1
 	github.com/daotl/cbor-gen v0.0.7
 	github.com/daotl/go-marsha v0.3.0
 	github.com/ipfs/go-cid v0.1.0
-	github.com/ipfs/go-ipld-cbor v0.0.5
+	github.com/ipfs/go-ipld-cbor v0.0.6
 	github.com/multiformats/go-multihash v0.1.0
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
 
@@ -39,6 +39,7 @@ require (
 	github.com/polydawn/refmt v0.0.0-20201211092308-30ac6d18308e // indirect
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/tendermint/tendermint v0.35.0 // indirect
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200123233031-1cdf64d27158 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
