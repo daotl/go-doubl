@@ -111,6 +111,42 @@ func (txs TransactionSlice) Size() uint64 {
 	return size
 }
 
+// PrivacyConf holds some encryption config of Transaction.
+type PrivacyConf struct {
+	// Need to be encrypted or not
+	Encrypt bool
+
+	// SecretSharingScheme
+	SecretSharingScheme string
+
+	// Total and Threshold shares
+	Total, Threshold int64
+
+	// KeyAddrs holds all node addresses storing secret segments
+	KeyAddrs []Address
+
+	// Shares[i] indicates the number of shares KeyAddrs[i] owns
+	Shares []int64
+
+	// EncryptMethod
+	EncryptMethod string
+
+	// CheckHashMethod
+	CheckHashMethod string
+}
+
+// Size calculates the estimated occupied memory of PrivacyConf in bytes.
+func (c *PrivacyConf) Size() uint64 {
+	size := uint64(unsafe.Sizeof(c) + unsafe.Sizeof(*c))
+	size += uint64(len(c.SecretSharingScheme))
+	if l := len(c.KeyAddrs); l > 0 {
+		size += uint64(len(c.KeyAddrs[0]) * l)
+	}
+	size += uint64(len(c.Shares) * 64)
+	size += uint64(len(c.EncryptMethod) + len(c.CheckHashMethod))
+	return size
+}
+
 // TransactionExt extends Transaction to hold some useful data that can be computed once and used in multiple places.
 type TransactionExt struct {
 	*Transaction
@@ -123,6 +159,9 @@ type TransactionExt struct {
 
 	// Pointer to the unmarshaled Transaction.Extra field
 	ExtraUnmarshaled ExtraPtr
+
+	// PrivacyConf
+	*PrivacyConf
 }
 
 // Size calculates the estimated occupied memory of TransactionExt in bytes.
@@ -132,6 +171,9 @@ func (txx *TransactionExt) Size() uint64 {
 		uint64(len(txx.Bytes)+len(txx.Hash))
 	if txx.ExtraUnmarshaled != nil {
 		size += txx.ExtraUnmarshaled.Size()
+	}
+	if tx.PrivacyConf != nil {
+		size += tx.PrivacyConf.Size()
 	}
 	return size
 }
