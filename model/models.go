@@ -331,3 +331,6 @@ type ExtraPtr interface {
 	// Size calculates the estimated occupied memory of the struct ExtraPtr points to in bytes.
 	Size() uint64
 }
+
+// ExtraCtor is a function that creates a new instance of T, which is an ExtraPtr.
+type ExtraCtor[T ExtraPtr] func() T

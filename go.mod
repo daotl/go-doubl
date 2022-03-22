@@ -1,6 +1,6 @@
 module github.com/daotl/go-doubl
 
-go 1.17
+go 1.18
 
 require (
 	github.com/crpt/go-crpt v0.5.1
