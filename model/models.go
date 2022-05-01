@@ -333,4 +333,4 @@ type ExtraPtr interface {
 }
 
 // ExtraCtor is a function that creates a new instance of T, which is an ExtraPtr.
-type ExtraCtor[T ExtraPtr] func() T
+type ExtraCtor func() ExtraPtr
